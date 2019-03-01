@@ -1,2 +1,2 @@
-# udacity-mlnd-dogs-vs-cats
+# Machine Learning Engineer Nanodegree
 使用深度学习方法识别一张图片是猫还是狗。
