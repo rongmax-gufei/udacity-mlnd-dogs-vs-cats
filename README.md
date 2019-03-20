@@ -27,6 +27,7 @@ PS：如果你不想自己从头开始训练模型，重复造轮子。也可以
 ### Domain Background
 [Dogs vs. Cats Redux: Kernels Edition](https://www.kaggle.com/c/dogs-vs-cats-redux-kernels-edition)
 ![](dogvscat.png)
+
 项目来源于 kaggle 在 2013 年组织的一场比赛：识别猫与狗。目前 Leaderboard 上展示了 1314 支队伍的成绩，排名第一的 score 是 0.03302，Top2% 的成绩是 0.04357。本项目的最低要求是 kaggle Public Leaderboard 前 10%，即 0.06149。
 
 ### Problem Statement
