@@ -34,15 +34,8 @@ PS：如果你不想自己从头开始训练模型，重复造轮子。也可以
 
 ### Datasets and Inputs
 此数据集可以从 kaggle 上下载。[Dogs vs. Cats Redux: Kernels Edition](https://www.kaggle.com/c/dogs-vs-cats-redux-kernels-edition/data)
-
 ![](train.png)
 ![](test.png)
-
-<figure class="half">
-    <img src="http://xxx.jpg">
-    <img src="http://yyy.jpg">
-</figure>
-
 训练集文件夹中一共 25000 张图片，猫和狗各占一半。每张图片有标签，文件名以 cat/dog.no.jpg 命名（如，cat.1.jpg）。测试集文件夹中一共 12500张图片，每张图片以数字编号命名（如，1.jpg），没有标签。我们需要预测测试集中的每一个图片是猫还是狗 (1 = dog, 0 = cat)。
 
 ### Solution Statement
