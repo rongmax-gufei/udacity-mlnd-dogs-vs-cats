@@ -75,49 +75,14 @@ sample_submission.csv 需要将最终测试集的测试结果写入.csv 文件�
 
 ### Datasets Analysis
 在做计算机视觉的任务时，第一步很重要的事情是看看要做的是什么样的数据集，是非常干净的？还是存在各种遮挡的？猫和狗是大是小？图片清晰度一般怎么样？会不会数据集中有标注错误的数据，比例是多少？
-此数据集由 kaggle 提供，数据集还是比较干净的，通过抽样的方式随机抽样观察，大多数的图片都大于260px，正常图片尺寸都在440px左右，分辨率也比较清晰。
-当然对于大数据集，我们无法简单抽样分辨的可以通过opencv，找出模糊图片，原理就是使用了cv2.Laplacian()这个方法，代码如下。图片越模糊，imageVar的值越小，图像越模糊。
+1、train 训练集包含了 25000 张猫狗的图片，平均宽=404px，平均高=360px，最小的宽=42px，最大宽=1050px，最小高=32px，最大高=768px；
+2、test 测试集包含了 12500 张猫狗的图片，平均宽=404px，平均高=359px，最小的宽=37px，最大宽=500px，最小高=44px，最大高=500px；
+3、还可以通过opencv，找出模糊图片，原理就是使用了cv2.Laplacian()这个方法，代码如下。图片越模糊，imageVar的值越小，图像越模糊。
 参考代码：来源于：https://blog.csdn.net/u014642834/article/details/78532798
-
-```
-#-*-coding:utf-8-*-
-import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
-import os
-import cv2
-import shutil
- 
-THRESHOLD = 30.0
- 
-dst_root = r'/media/unionpay/0009FFAB000A9861/CASIA&KFZX_CLEAR'
-for fpath, dirs, fs in os.walk('/media/unionpay/0009FFAB000A9861/CASIA&KFZX'):
- i = 0
- for dir in dirs:
-  i += 1
-  if i%100 == 0:
-   print (str(i)+'folders processed current:'+dir)
-  abs_dir = os.path.join(fpath, dir)
-  for _, __, fs in os.walk(abs_dir):
-   clear_img_list = []
-   for f in fs:
-    item = os.path.join(_, f)
-    image = cv2.imread(os.path.join("/media/unionpay/0009FFAB000A9861/CASIA&KFZX/0000447", item))
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    imageVar = cv2.Laplacian(gray, cv2.CV_64F).var()
-    if not imageVar < THRESHOLD:
-     clear_img_list.append(item)
-   dst_folder = os.path.join(dst_root, dir)
-   if len(clear_img_list) >= 15:
-    if not os.path.exists(dst_folder):
-     os.mkdir(dst_folder)
-    for item in clear_img_list:
-     dst_path = os.path.join(dst_folder, item.split('/')[-1])
-     shutil.copy(item, dst_path)
-```
+4、为了提高模型的识别精确度，有必要去除异常图片，如分辨率低于(100 * 100) 的图片资源
 
 ### Solution Statement
-为了提高模型的表现，本项目决定使用预训练网络，最终选择了ResNet50, Xception, Inception V3 这三个模型，每个模型导出的时间都挺长。 这三个模型都是在 ImageNet 上面预训练过的，所以每一个模型都可以说是身经百战。我们可以将多个不同的网络输出的特征向量先保存下来，后续即使是在普通笔记本上也能轻松训练。
+为了提高模型的表现，本项目决定使用预训练网络，最终选择了ResNet50, Xception, Inception V3 这三个模型，由于在笔记本上跑的，三个模型导出的时间耗了一天时间，时常有中途下载失败的情况。 这三个模型都是在 ImageNet 上面预训练过的，由此我们实际的预测训练会带来极高的初始精度。我们可以将多个不同的网络输出的特征向量先保存下来，后续即使是在普通笔记本上也能轻松训练。
 
 有了三个特征向量后，我们需要将这三条向量进行合并成一条特征向量。
 
@@ -143,99 +108,11 @@ for fpath, dirs, fs in os.walk('/media/unionpay/0009FFAB000A9861/CASIA&KFZX'):
 ### Project Design
 数据预处理：
 由于我们的数据集的文件名是以 type.num.jpg 这样的方式命名，如 cat.0.jpg，但是使用 Keras 的 ImageDataGenerator 需要将不同种类的图片分在不同的文件夹中，因此我们需要对数据集进行预处理。这里我们采取的思路是创建符号链接(symbol link)，优点是不用复制一遍图片，占用不必要的空间。
-
-```
-train_list = os.listdir('train')
-
-train_cat = filter(lambda x:x[:3] == 'cat', train_list)
-train_dog = filter(lambda x:x[:3] == 'dog', train_list)
-
-def mkdir(path):
-    folder = os.path.exists(path)
-    if folder:
-        shutil.rmtree(path)
-    os.mkdir(path)
-
-train_symlink_path = 'train-symlink'
-test_symlink_path = 'test-symlink'
-    
-mkdir(train_symlink_path)
-
-os.mkdir(train_symlink_path + '/cat')
-for filename in train_cat:
-    os.symlink('../../train/' + filename, train_symlink_path + '/cat/' + filename)
-
-os.mkdir(train_symlink_path + '/dog')
-for filename in train_dog:
-    os.symlink('../../train/' + filename, train_symlink_path + '/dog/' + filename)
-
-mkdir(test_symlink_path)
-os.symlink('../test/', test_symlink_path + '/test')
-```
 导出特征向量：
-```
-def write_gap(MODEL, image_size, lambda_func=None):
-    input_tensor = Input(shape=(image_size[0], image_size[1], 3))
-    x = input_tensor
-    if lambda_func:
-        x = Lambda(lambda_func)(x)
-         
-    base_model = MODEL( include_top=False, weights='imagenet', input_tensor=x)
-    model = Model(base_model.input, GlobalAveragePooling2D()(base_model.output))
 
-    gen = ImageDataGenerator()
-    train_generator = gen.flow_from_directory("train-symlink", image_size, shuffle=False, 
-                                              batch_size=32)
-    test_generator = gen.flow_from_directory("test-symlink", image_size, shuffle=False, 
-                                             batch_size=32, class_mode=None)
-
-    train = model.predict_generator(train_generator, math.ceil(train_generator.samples*1.0/train_generator.batch_size), verbose=1)
-    test = model.predict_generator(test_generator, math.ceil(test_generator.samples*1.0/test_generator.batch_size), verbose=1)
-    
-    if MODEL==ResNet50:
-        model_name = "gap_ResNet50.h5"
-    elif MODEL==Xception:
-        model_name = "gap_Xception.h5"
-    elif MODEL==InceptionV3:
-        model_name = "gap_InceptionV3n.h5"
-    with h5py.File(model_name) as h:
-        h.create_dataset("train", data=train)
-        h.create_dataset("test", data=test)
-        h.create_dataset("label", data=train_generator.classes)
-        
-write_gap(ResNet50, (224, 224))
-write_gap(Xception, (299, 299), xception.preprocess_input)
-write_gap(InceptionV3, (299, 299), inception_v3.preprocess_input)
-```
 合并特征向量：
-```
-np.random.seed(2019)
 
-X_train = []
-X_test = []
-
-for filename in ["gap_ResNet50.h5", "gap_Xception.h5", "gap_InceptionV3.h5"]:
-    with h5py.File(filename, 'r') as h:
-        X_train.append(np.array(h['train']))
-        X_test.append(np.array(h['test']))
-        y_train = np.array(h['label'])
-
-X_train = np.concatenate(X_train, axis=1)
-X_test = np.concatenate(X_test, axis=1)
-
-X_train, y_train = shuffle(X_train, y_train)
-```
 模型构建：
-```
-input_tensor = Input(X_train.shape[1:])
-x = Dropout(0.5)(input_tensor)
-x = Dense(1, activation='sigmoid')(x)
-model = Model(input_tensor, x)
-
-model.compile(optimizer='adadelta',
-              loss='binary_crossentropy',
-              metrics=['accuracy'])
-```
 
 迁移学习的神经网络结果如下图：
 
@@ -243,27 +120,6 @@ model.compile(optimizer='adadelta',
 
 模型训练：
 
-```
-fit = model.fit(X_train, y_train, batch_size=128, epochs=8, validation_split=0.2, verbose=1)
-print(fit.history)
-```
+
 预测测试集：
-```
-y_pred = model.predict(X_test, verbose=2)
-y_pred = y_pred.clip(min=0.005, max=0.995)
-```
-```
-df = pd.read_csv("sample_submission.csv")
 
-gen = ImageDataGenerator()
-test_generator = gen.flow_from_directory("test-symlink", (224, 224), shuffle=False,
-                                         batch_size=32, class_mode=None)
-
-for i, fname in enumerate(test_generator.filenames):
-    index = int(fname[fname.rfind('/')+1:fname.rfind('.')])
-    df.set_value(index-1, 'label', y_pred[i])
-
-df.to_csv('pred.csv', index=None)
-
-df.head(10)
-```
