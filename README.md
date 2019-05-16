@@ -125,7 +125,7 @@ sample_submission.csv 需要将最终测试集的测试结果写入.csv 文件�
                 metrics=['accuracy'])
   ```
 
-![](./dogs-vs-cats-redux-kernels-edition/model.png)
+![](./model.png)
 
 ​																						图一
 
