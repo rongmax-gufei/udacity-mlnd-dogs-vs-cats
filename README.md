@@ -86,8 +86,16 @@ sample_submission.csv 需要将最终测试集的测试结果写入.csv 文件�
 
 有了三个特征向量后，我们需要将这三条向量进行合并成一条特征向量。
 
+为了尽量利用我们有限的训练数据，我们将通过一系列随机变换堆数据进行提升，这样我们的模型将看不到任何两张完全相同的图片，这有利于我们抑制过拟合，使得模型的泛化能力更好。 在Keras中，这个步骤可以通过keras.preprocessing.image.ImageGenerator来实现，这个类使你可以：在训练过程中，设置要实行的随机变换，通过.flow或.flow_from_directory(directory)方法实例化一个针对图像batch的生成器，这些生成器可以被用作keras模型相关方法的输入，如fit_generator、evaluate_generator、predict_generator。
+
 ### Benchmark Model
-模型构建时，设置 dropout = 0.5，激活函数：Sigmoid，优化器为 Adadelta。
+关于模型选型有以下三个方向：
+
+- 普通的 CNN 方法直接训练一个基础模型，依次建立卷积层、全连接层、sigmoid输出分类、通过keras.preprocessing.image.ImageGenerator 进行一系列随机变换堆数据进行提升，抑制过拟合
+
+- 站在巨人的肩膀，使用预训练好的 ResNet50 方法进行训练，融合ResNet50, Xception, InceptionV3三大模型，训练速度快，准确率高
+
+- 使用TensorFlow迁移学习，可选 VGG16 模型
 
 ### Evaluation Metrics
 对数损失（Log loss）亦被称为逻辑回归损失（Logistic regression loss）或交叉熵损失（Cross-entropy loss）。 交叉熵是常用的评价方式之一，它实际上刻画的是两个概率分布之间的距离，是分类问题中使用广泛的一种损失函数。
@@ -106,20 +114,14 @@ sample_submission.csv 需要将最终测试集的测试结果写入.csv 文件�
 交叉熵损失越小，代表模型的性能越好。上述评估指标可用于评估该项目的解决方案以及基准模型。
 
 ### Project Design
-数据预处理：
-由于我们的数据集的文件名是以 type.num.jpg 这样的方式命名，如 cat.0.jpg，但是使用 Keras 的 ImageDataGenerator 需要将不同种类的图片分在不同的文件夹中，因此我们需要对数据集进行预处理。这里我们采取的思路是创建符号链接(symbol link)，优点是不用复制一遍图片，占用不必要的空间。
-导出特征向量：
-
-合并特征向量：
-
-模型构建：
-
-迁移学习的神经网络结果如下图：
-
-![](迁移学习构建图.png)
-
-模型训练：
-
-
-预测测试集：
+- 第一步先进行数据集分析，异常数据清洗
+- 第二步准备数据集，数据集归类
+- 第三步模型特征选择，在ImageNet 的预训练模型基础上，融合ResNet50, Xception, InceptionV3三大模型，把三个模型合并在一起，每个图片就有2048 * 3个权重值
+-  我们基于这些权重值建立一个全连接，训练深度神经网络的时候，总是会遇到两大缺点：
+  （1）容易过拟合
+  （2）费时
+  Dropout可以比较有效的缓解过拟合的发生，在一定程度上达到正则化的效果
+-  接下来进行模型训练，我们选取validation_split=0.2，表示总样本的20%用来进行验证
+-  优化器选择，optimizer='adadelta'，Adadelta是对Adagrad的扩展，最初方案依然是对学习率进行自适应约束，但是进行了计算上的简化。特点是，训练初中期，加速效果不错，很快；训练后期，反复在局部最小值附近抖动
+- 最后进行预测数据集
 
