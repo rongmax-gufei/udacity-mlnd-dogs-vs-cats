@@ -48,8 +48,6 @@ PS：如果你不想自己从头开始训练模型，重复造轮子。也可以
 
 项目来源于 kaggle 在 2013 年组织的一场比赛，它使用25000张（约543M）猫狗图片作为训练集，12500张(约271M)图片作为测试集，数据都是分辨率400x400左右的小图片，目标是识别测试集中的图片是猫还是狗。赛题网址：https://www.kaggle.com/c/dogs-vs-cats。
 
-目前 Leaderboard 上展示了 1314 支队伍的成绩，排名第一的 score 是 0.03302，Top2% 的成绩是 0.04357。本项目的最低要求是 kaggle Public Leaderboard 前 10%，即 0.06149。
-
 ### Problem Statement
 深度学习中最突出的问题之一是图像分类。图像分类的目的是根据潜在的类别对特定的图像进行分类。图像分类的一个经典示例是在一组图像中识别猫和狗。
 
@@ -89,13 +87,54 @@ sample_submission.csv 需要将最终测试集的测试结果写入.csv 文件�
 为了尽量利用我们有限的训练数据，我们将通过一系列随机变换堆数据进行提升，这样我们的模型将看不到任何两张完全相同的图片，这有利于我们抑制过拟合，使得模型的泛化能力更好。 在Keras中，这个步骤可以通过keras.preprocessing.image.ImageGenerator来实现，这个类使你可以：在训练过程中，设置要实行的随机变换，通过.flow或.flow_from_directory(directory)方法实例化一个针对图像batch的生成器，这些生成器可以被用作keras模型相关方法的输入，如fit_generator、evaluate_generator、predict_generator。
 
 ### Benchmark Model
+目前 Leaderboard 上展示了 1314 支队伍的成绩，排名第一的 score 是 0.03302，Top2% 的成绩是 0.04357。本项目的最低要求是 kaggle Public Leaderboard 前 10%，即 0.06149。
+
 关于模型选型有以下三个方向：
 
-- 普通的 CNN 方法直接训练一个基础模型，依次建立卷积层、全连接层、sigmoid输出分类、通过keras.preprocessing.image.ImageGenerator 进行一系列随机变换堆数据进行提升，抑制过拟合
+- 1、普通的 CNN方法直接训练一个"基准模型"，依次建立卷积层、全连接层、sigmoid输出分类、通过keras.preprocessing.image.ImageGenerator 进行一系列随机变换堆数据进行提升，抑制过拟合。
+有关 CNN 的知识，推荐：[Understanding of Convolutional Neural Network](https://medium.com/@RaghavPrabhu/understanding-of-convolutional-neural-network-cnn-deep-learning-99760835f148) 
 
-- 站在巨人的肩膀，使用预训练好的 ResNet50 方法进行训练，融合ResNet50, Xception, InceptionV3三大模型，训练速度快，准确率高
+  ```
+  model.add(Dropout(0.5))
+  model.add(Convolution2D(4, 5, 5,input_shape=(224, 224,3)))
+  model.add(Activation('relu'))
+  model.add(MaxPooling2D(pool_size=(2, 2)))
+  ```
 
-- 使用TensorFlow迁移学习，可选 VGG16 模型
+  ```
+  model.compile(loss='binary_crossentropy',
+                optimizer='rmsprop',
+                metrics=['accuracy'])
+  ```
+
+- 2、站在巨人的肩膀，使用预训练好的 ResNet50 方法进行训练，融合ResNet50, Xception, InceptionV3 三大模型，训练速度快，准确率高。
+推荐 ResNet 相关知识的好文章：
+
+  - [Understanding and Coding a ResNet in Keras](https://towardsdatascience.com/understanding-and-coding-a-resnet-in-keras-446d7ff84d33)
+  
+  - [ImageNet: VGGNet, ResNet, Inception, and Xception with Keras](https://www.pyimagesearch.com/2017/03/20/imagenet-vggnet-resnet-inception-xception-keras/)
+  
+  ```
+  inputs = Input(X_train.shape[1:])
+  x = Dropout(0.25)(inputs)
+  x = Dense(1, activation='sigmoid')(x)
+  model = Model(inputs, x)
+  
+  model.compile(optimizer='adadelta', 
+                loss='binary_crossentropy', 
+                metrics=['accuracy'])
+  ```
+
+![](./dogs-vs-cats-redux-kernels-edition/model.png)
+
+​																						图一
+
+![](./迁移学习构建图.png)
+
+​																							图二
+
+- 3、使用TensorFlow迁移学习，可选 VGG16 模型
+有关VGG16的知识，推荐：[VGG16 – Convolutional Network for Classification and Detection](https://neurohive.io/en/popular-networks/vgg16/)
 
 ### Evaluation Metrics
 对数损失（Log loss）亦被称为逻辑回归损失（Logistic regression loss）或交叉熵损失（Cross-entropy loss）。 交叉熵是常用的评价方式之一，它实际上刻画的是两个概率分布之间的距离，是分类问题中使用广泛的一种损失函数。
