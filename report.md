@@ -11,7 +11,7 @@
 
 项目来源于 kaggle 在 2013 年组织的一场比赛，它使用25000张（约543M）猫狗图片作为训练集，12500张(约271M)图片作为测试集，数据都是分辨率400x400左右的小图片，目标是识别测试集中的图片是猫还是狗。
 
-本项目属于计算机视觉中的图像分类问题。图像分类的目的是根据潜在的类别对特定的图像进行分类。图像分类的一个经典示例是在一组图像中识别猫和狗。
+本项目属于计算机视觉中的图像分类问题，图像分类的目的是根据潜在的类别对特定的图像进行分类。图像分类的一个经典示例是在一组图像中识别猫和狗。
 
 赛题网址：https://www.kaggle.com/c/dogs-vs-cats
 
@@ -20,6 +20,8 @@
 ![](dogvscat.png)
 
 ### 问题陈述
+计算机视觉是深度学习技术最早实现突破性成就的领域，在2012年深度学习算法AlexNer赢得图像分类比赛冠军，深度学习开始受到学术界广泛的关注。在技术革新的同时，工业界也将图像分类、物体识别应用于各种产品中。像百度的图片相似搜索功能，就是一个通过图像处理技术可以归纳出图片中的主要内容并实现以图搜图的功能。
+
 本文将介绍如何在图像分类问题中实施迁移学习解决方案。主要是使用"监督学习”实现一个图像分类器，来识别一张图片是猫还是狗。
 
 对于图像识别，在数据量足量大的情况下，一般使用深度学习中的卷积神经网络（Convolutional Neural Networks, CNN），而本文将从迁移学习的角度，看看如何应用现有的深度学习模型（ResNet50、InceptionV3 和 Xception），从图片中提取特征，供分类器使用。使用此方法，即无需大量学习和训练模型的时间成本，又能解决图片识别相关的大多数问题。
@@ -65,9 +67,12 @@ sample_submission.csv 需要将最终测试集的测试结果写入.csv 文件�
 - test 测试集包含了 12500 张猫狗的图片，平均宽=404px，平均高=359px，最小的宽=37px，最大宽=500px，最小高=44px，最大高=500px；
 - 还可以通过opencv，找出模糊图片，原理就是使用了cv2.Laplacian()这个方法，代码如下。图片越模糊，imageVar的值越小，图像越模糊。
 
-通过对图片中的色彩像素比进行 IQR 分析，发现了一些低分辨率（小于100px）和无关的图片（非猫和狗）：
+通过对图片中的色彩像素比进行 IQR 分析，发现了一些低分辨率和无关的图片（非猫和狗）：
 ![](./outlier_images.png)
 对于训练集来说，这些异常数据是要剔除掉的。
+
+训练集图片尺寸散点分布图：
+![](./scatter_train.png)
 
 ### 算法和技术
 
@@ -75,59 +80,21 @@ sample_submission.csv 需要将最终测试集的测试结果写入.csv 文件�
 
 ![](./cnn_framework.png)
 
-卷积神经网络中卷积层和池化层主要是对图片的几何特征进行抽取，然后全连接层对图片分类进行处理。输入层、卷积层、输出层的结构及其对应的参数就构成了一个典型的卷积神经网络。
-我们可以利用已经训练好的卷积神经网络提取图片中复杂的几何特征，即将原始图片用已经训练好的卷积神经网络处理之后的输出，作为新的输入，然后加上自己的全连接层，去进行分类。在模型训练的过程中，只改变新加的全连接层的权重。
+在卷积神经网络中，池化层与卷积层主要是抽取图片的几何特征，全连接层主要是处理图片分类问题。输入层、卷积层和输出层所组成的结构及其对应的参数就构成了一个典型的卷积神经网络。
+
+一般地，我们可以利用已经训练好的卷积神经网络提取图片中复杂的几何特征（如ResNet、AlexNet），将原始图片用已经训练好的卷积神经网络处理之后的输出，作为新的输入，然后加上自己的全连接层，去进行分类。在模型训练的过程中，只改变新加的全连接层的权重。
+
 总的来说，卷积神经网络是一种特殊的神经网络结构，即通过卷积操作可以实现对图像特征的自动学习，选取那些有用的视觉特征以最大化图像分类的准确率。
 
-自 2012 年的 ImageNet 比赛起，几乎每一年都会有新的网络结构诞生，已经被大家认可的常见网络有 AlexNet, VGG-Net, GoogLeNet, Inception V2-V4, ResNet 等。这些卷积神经网络都是在 ImageNet 数据集上表现非常优异的神经网络，具体准确率和模型大小如下图所示。
+从 2012 年的 ImageNet 比赛起，几乎每一年都会有新的网络结构诞生，已经被大家认可的常见网络有 AlexNet， VGG-Net，GoogLeNet，Inception V2-V4，ResNet 等。这些卷积神经网络都是在 ImageNet 数据集上表现非常优异的神经网络，具体准确率和模型大小如下图所示：
+
 ![](./cnn_arc.png)
 
 由于每一种神经网络提取的特征都不一样，因此本项目将多个神经网络处理的结果拼接，作为最后一层全连接层的输入，这样做可以有效地降低方差。
 
-本项目迁移学习部分使用 Keras 实现，而 Keras 中可以导入的模型有 Xception，VGG16，VGG19，ResNet50，InceptionV3，InceptionResNet -V2，MobileNet. 综合考虑模型的分类准确率和大小，选用迁移学习的基础模型为 ResNet50，InceptionV3 和 Xception。
+本项目迁移学习部分使用 Keras 实现，而 Keras 中可以导入的模型有 ResNet50，InceptionResNet -V2，InceptionV3，Xception，VGG16，VGG19，MobileNet，综合考虑模型的分类准确率和大小，选用迁移学习的基础模型为 ResNet50，InceptionV3 和 Xception。
 
-迁移学习是一种机器学习技术，即我们可以将一个领域的知识（比如 ImageNet）应用到目标领域，从而可以极大减少所需要的数据点。在实践中，这通常涉及到使用来自 ResNet、Inception 等的预训练的权重初始化模型，然后要么将其用作特征提取器，要么就在一个新数据集上对最后几层进行微调。使用迁移学习，这些模型可以在任何我们想要执行的相关任务上得到重新利用。
-
-**ResNet**
-
-ResNet 诞生于一个美丽而简单的观察：为什么非常深度的网络在增加更多层时会表现得更差？
-
-直觉上推测，更深度的网络不会比更浅度的同类型网络表现更差吧，至少在训练时间上是这样（当不存在过拟合的风险时）。让我们进行一个思想实验，假设我们已经构建了一个 n 层网络，并且实现了一定准确度。那么一个 n+1 层网络至少也应该能够实现同样的准确度——只要简单复制前面 n 层，再在最后一层增加一层恒等映射就可以了。类似地，n+2、n+3 和 n+4 层的网络都可以继续增加恒等映射，然后实现同样的准确度。但是在实际情况下，这些更深度的网络基本上都会表现得更差。
-
-ResNet 的作者将这些问题归结成了一个单一的假设：直接映射是难以学习的。而且他们提出了一种修正方法：不再学习从 x 到 H(x) 的基本映射关系，而是学习这两者之间的差异，也就是「残差（residual）」。然后，为了计算 H(x)，我们只需要将这个残差加到输入上即可。
-
-假设残差为 F(x)=H(x)-x，那么现在我们的网络不会直接学习 H(x) 了，而是学习 F(x)+x。
-
-这就带来了你可能已经见过的著名 ResNet（残差网络）模块：
-
-![](./resnet50.jpg)
-
-ResNet 模块
-
-ResNet 的每一个「模块（block）」都由一系列层和一个「捷径（shortcut）」连接组成，这个「捷径」将该模块的输入和输出连接到了一起。然后在元素层面上执行「加法（add）」运算，如果输入和输出的大小不同，那就可以使用零填充或投射（通过 1×1 卷积）来得到匹配的大小。
-
-ResNet 是神经网络领域我个人最喜欢的进展之一。很多深度学习论文都是通过对数学、优化和训练过程进行调整而取得一点点微小的进步，而没有思考模型的底层任务。ResNet 则从根本上改变了我们对神经网络及其学习方式的理解。
-
-**Inception**
-
-如果 ResNet 是为了更深，那么 Inception 家族就是为了更宽。Inception 的作者对训练更大型网络的计算效率尤其感兴趣。Inception 的第一个版本是 GoogLeNet，也就是前面提及的赢得了 ILSVRC 2014 比赛的 22 层网络。一年之后，研究者在第二篇论文中发展出了 Inception v2 和 v3，并在原始版本上实现了多种改进——其中最值得一提的是将更大的卷积重构成了连续的更小的卷积，让学习变得更轻松。比如在 v3 中，5×5 卷积被替换成了两个 连续的 3×3 卷积。
-
-Inception 很快就变成了一种具有决定性意义的模型架构。最新的版本 Inception v4 甚至将残差连接放进了每一个模组中，创造出了一种 Inception-ResNet 混合结构。但更重要的是，Inception 展现了经过良好设计的「网中有网」架构的能力，让神经网络的表征能力又更上了一层楼。
-
-**Xception**
-
-Xception 表示「extreme inception」。和前面两种架构一样，它重塑了我们看待神经网络的方式——尤其是卷积网络。而且正如其名字表达的那样，它将 Inception 的原理推向了极致。
-
-它的假设是：「跨通道的相关性和空间相关性是完全可分离的，最好不要联合映射它们。」
-
-这是什么意思？在传统的卷积网络中，卷积层会同时寻找跨空间和跨深度的相关性。让我们再看一下标准的卷积层：
-
-![](/Users/gufei/saic/workspace/MachineLearning/udacity-mlnd-dogs-vs-cats/module_layer.png)
-
-在上图中，过滤器同时考虑了一个空间维度（每个 2×2 的彩色方块）和一个跨通道或「深度」维度（4 个方块的堆叠）。在输入图像的输入层，这就相当于一个在所有 3 个 RGB 通道上查看一个 2×2 像素块的卷积过滤器。那问题来了：我们有什么理由去同时考虑图像区域和通道？
-
-在 Inception 中，我们开始将两者稍微分开。我们使用 1×1 的卷积将原始输入投射到多个分开的更小的输入空间，而且对于其中的每个输入空间，我们都使用一种不同类型的过滤器来对这些数据的更小的 3D 模块执行变换。Xception 更进一步。不再只是将输入数据分割成几个压缩的数据块，而是为每个输出通道单独映射空间相关性，然后再执行 1×1 的深度方面的卷积来获取跨通道的相关性。
-![](./Xception.jpg)
+迁移学习是一种机器学习技术，即我们可以将一个领域的知识（比如 ImageNet）应用到目标领域，从而可以极大减少所需要的数据点。在实践中，这通常涉及到使用来自 ResNet、Inception 等预训练的权重初始化模型，然后要么将其用作特征提取器，要么就在一个新数据集上对最后几层进行微调。使用迁移学习，这些模型可以在任何我们想要执行的相关任务上得到重新利用。
 
 ### 基准模型
 目前 Leaderboard 上展示了 1314 支队伍的成绩，排名第一的 score 是 0.03302，Top2% 的成绩是 0.04357。本项目的最低要求是 kaggle Public Leaderboard 前 10%，即 0.06149。
@@ -147,7 +114,7 @@ Top-1错误率
 
 ![](./ImageNet_top.png)
 
-使用 InceptionV3 模型排查出的需要剔除的图片有45张，如下图展示：
+使用 IQR 排查出的需要剔除的图片有45张，如下图展示：
 ![](./outlier_images.png)
 
 数据集清洗后，猫的数量：12479，狗的数量：12476，测试集图片数量：12500。
@@ -269,9 +236,12 @@ model.compile(optimizer='adadelta',
               loss='binary_crossentropy', 
               metrics=['accuracy'])
 ```
+迁移学习的神经网络结构图：
+![](./迁移学习构建图.png)
+
 #### 训练模型
 ```
-fit = model.fit(X_train, y_train, batch_size=128, epochs=8, validation_split=0.2, verbose=1)
+history = model.fit(X_train, y_train, batch_size=128, epochs=8, validation_split=0.2, verbose=1)
 ```
 #### 保存模型
 ```
@@ -280,15 +250,30 @@ model.save('model.h5')
 ### 完善
 - 本项目通过色彩-像素比进行 IQR 分析来剔除异常图片，并不能找出所有异常图片，比如遮挡、猫狗占图片的总面积等，这些都没有完全剔除来。后期可以试试从图片模糊、旋转、裁剪等角度去提升
 - 通过对模型参数的优化，选择不同的优化器，去尝试优化的结果
+- 调参，包括dropout，lr，优化器等等
+- tricks，包括数据增强，test-time-augmentation，lr衰减等等
+- 其他思路，比如模型融合，bagging等。
 
 ## IV. 结果
 ### 模型的评价与验证
 ![](./model_fit.png)
+![](./accuracy.png)
+![](./loss.png)
 ![](./score.png)
 Kaggle 得分：0.04106，leaderboard 18 / 1314。
 
 ### 合理性分析
-Xception，InceptionV3 和 ResNet50 这三个模型进行组合迁移学习，效果比先单个神经网络模型效果好。更好的抽取图片中的泛化特征，这样既可以提高分类的准确率，又可以降低模型的过拟合风险，可以有效降低模型的方差，减少过拟合程度，提高分类准确率。
+单个ResNet50模型，8次epoch情况如下：
+
+![](./resnet50.png)
+
+单个Xception模型，8次epoch情况如下：
+![](./Xception.png)
+
+单个InceptionV3模型，8次epoch情况如下：
+![](./InceptionV3.png)
+
+Xception，InceptionV3 和 ResNet50 单个模型效果都挺不错，由此可见，预训练模型真的身经百战，将这三个模型进行组合，得到的效果比先单个神经网络模型效果要更好，更好的抽取图片中的泛化特征，这样既可以提高分类的准确率，又可以降低模型的过拟合风险，可以有效降低模型的方差，减少过拟合程度，提高分类准确率。
 
 
 ## V. 项目结论
@@ -302,3 +287,30 @@ Xception，InceptionV3 和 ResNet50 这三个模型进行组合迁移学习，�
 
 ### 需要作出的改进
 TensorFlow、PyTorch等框架技术有先天的优势，效率高、实现简单高效，得到了业界的大力推荐，keras框架效率比较低。可以尝试使用TensorFlow、PyTorch框架去实现，看看准确度与实现的复杂性，做一个比较。
+
+## 参考文献
+[1] [基于Theano的深度学习(Deep Learning)框架Keras学习随笔-05-模型](https://blog.csdn.net/niuwei22007/article/details/49207187)
+
+[2] [keras-model-visualization](https://keras.io/visualization/)
+
+[3] [手把手教你如何在Kaggle猫狗大战冲到Top2%](https://zhuanlan.zhihu.com/p/25978105?utm_source=weibo) 
+
+[4] [image_classification_using_very_little_data](https://keras-cn-docs.readthedocs.io/zh_CN/latest/blog/image_classification_using_very_little_data)
+
+[5] [pooling_layer](https://keras-cn.readthedocs.io/en/latest/layers/pooling_layer)
+
+[6] [利用resnet 做kaggle猫狗大战图像识别，秒上98准确率](https://blog.csdn.net/shizhengxin123/article/details/72473245)
+
+[7] [plt.Scatter函数解析](https://blog.csdn.net/tefuirnever/article/details/88944438)
+
+[8] [numpy : percentile使用](https://blog.csdn.net/u011630575/article/details/79451357)
+
+[9] Xie S, Girshick R, Dollár P, et al. Aggregated residual transformations for deep neural networks[J]. arXiv preprint arXiv:1611.05431, 2016.
+
+[10] Donahue J, Jia Y, Vinyals O, et al. DeCAF: A Deep Convolutional Activation Feature for Generic Visual Recognition[C]//Icml. 2014, 32: 647-655.
+
+[11] Ruder S. An overview of gradient descent optimization algorithms[J]. arXiv preprint arXiv:1609.04747, 2016.
+
+[12] He K, Zhang X, Ren S, et al. Deep residual learning for image recognition[C]. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition. 2016: 770-778.
+
+[13] Chollet, François, [Keras](https://github.com/fchollet/keras).

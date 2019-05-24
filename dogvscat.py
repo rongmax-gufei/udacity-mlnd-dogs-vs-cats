@@ -29,7 +29,7 @@
 
 # ## 导入库
 
-# In[2]:
+# In[48]:
 
 
 import os
@@ -56,16 +56,16 @@ from keras.preprocessing.image import *
 from keras.models import *
 
 
-# In[3]:
+# In[2]:
 
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 
 # ## 数据探索
-# 在做计算机视觉的任务时，第一步很重要的事情是看看要做的是什么样的数据集，是非常干净的？还是存在各种遮挡的？猫和狗是大是小？图片清晰度一般怎么样？会不会数据集中有标注错误的数据，比例是多少？
+# 在做计算机视觉的任务时，第一步很重要的事情是看看要做的是什么样的数据集，是非常干净的？还是存在各种遮挡的？猫和狗是大是小？图片清晰度一般怎么样？会不会数据集中有标注错误的数据，比例是多少？散点分布情况？
 
-# In[4]:
+# In[11]:
 
 
 imagelist = os.listdir('train/')
@@ -114,7 +114,57 @@ print("The min image size is {}*{}".format(min_product_width, min_product_height
 
 # train 训练集包含了 25000 张猫狗的图片，平均宽=404px，平均高=360px，最小的宽=42px，最大宽=1050px，最小高=32px，最大高=768px；可以发现很多分辨率低图片，我们需要清理掉这些的图片。
 
-# In[5]:
+# #### 绘制训练集中所有图片的大小散点图分布情况：
+
+# In[14]:
+
+
+train_image_list = os.listdir('train/')
+height_array = []
+width_array = []
+for name in train_image_list[1:]:
+    image = load_img('train/' + name)
+    x = img_to_array(image)
+    height_array.append(x.shape[0])
+    width_array.append(x.shape[1])
+
+x = np.array(width_array)
+y = np.array(height_array)
+area = np.pi * (15 * 0.05) ** 2
+
+plt.scatter(x, y, s = area, alpha = 0.5,  marker='x')
+plt.show()
+
+
+# #### 找出训练集中的所有长 or 宽 < 70px 的图片，分析其清晰度
+
+# In[17]:
+
+
+train_image_list = os.listdir('train/')
+bad_pictures = []
+for name in train_image_list[1:]:
+    image = load_img('train/' + name)
+    x = img_to_array(image)
+    if x.shape[0] < 70 or x.shape[1] < 70:
+        bad_pictures.append(name) 
+print(bad_pictures)
+
+
+# In[18]:
+
+
+for name in bad_pictures[:]:
+    image = load_img('train/' + name)
+    x = img_to_array(image)
+    plt.title(name)
+    plt.imshow(image)
+    plt.show()
+
+
+# #### 去除离群点
+
+# In[19]:
 
 
 plt.style.use('seaborn-white')
@@ -134,7 +184,7 @@ q99, q01 = np.percentile(a=ratio_list, q=[99, 1])
 print(q99, q01)
 
 
-# In[7]:
+# In[20]:
 
 
 # 将异常图片输出
@@ -158,7 +208,7 @@ for name in train_image_list[:]:
 print(outlier_images)
 
 
-# In[8]:
+# In[21]:
 
 
 # 定义创建目标路径方法
@@ -168,14 +218,14 @@ def mkdir(dirname):
     os.mkdir(dirname)
 
 
-# In[9]:
+# In[22]:
 
 
 # 创建异常图片集文件夹
 mkdir('outlier')
 
 
-# In[10]:
+# In[23]:
 
 
 # 挑出所有低分率的图片
@@ -189,7 +239,7 @@ outlier_list = ['cat.10107.jpg', 'cat.10277.jpg', 'cat.10392.jpg', 'cat.10893.jp
                'dog.9246.jpg', 'dog.9517.jpg', 'dog.9705.jpg']
 
 
-# In[11]:
+# In[ ]:
 
 
 # 将这些异常图片从训练集中删除
@@ -209,7 +259,7 @@ for i in range(0, outlier_image_size):
 # ## 数据预处理
 # 由于我们的数据集的文件名是以 type.num.jpg 这样的方式命名，如 cat.0.jpg，但是使用 Keras 的 ImageDataGenerator 需要将不同种类的图片分在不同的文件夹中，因此我们需要对数据集进行预处理。这里我们采取的思路是借鉴[杨培文](https://www.sohu.com/a/130598226_473283)的创建符号链接(symbol link)，优点是不用复制一遍图片，占用不必要的空间。
 
-# In[ ]:
+# In[24]:
 
 
 train_list = os.listdir('train')
@@ -219,7 +269,7 @@ train_cat = filter(lambda x:x[:3] == 'cat', train_list)
 train_dog = filter(lambda x:x[:3] == 'dog', train_list)
 
 
-# In[ ]:
+# In[25]:
 
 
 # 定义 训练集的 symlink 文件夹名字
@@ -239,7 +289,7 @@ for filename in train_dog:
     os.symlink('../../train/' + filename, train_symlink_path + '/dog/' + filename)
 
 
-# In[ ]:
+# In[26]:
 
 
 # 定义 测试集的 symlink 文件夹名字 
@@ -256,7 +306,7 @@ os.symlink('../test/', test_symlink_path + '/test')
 # 
 # 为了提高模型的表现，本项目决定使用预训练网络，最终选择了ResNet50, Xception, Inception V3 这三个模型，由于在笔记本上跑的，三个模型导出的时间耗了一天时间，时常有中途下载失败的情况。 这三个模型都是在 ImageNet 上面预训练过的，由此我们实际的预测训练会带来极高的初始精度。我们可以将多个不同的网络输出的特征向量先保存下来，后续即使是在普通笔记本上也能轻松训练。
 
-# In[ ]:
+# In[28]:
 
 
 """
@@ -347,7 +397,7 @@ def write_gap(MODEL, image_size, lambda_func=None):
 
 # 把三个模型合并在一起，每个图片就有2048*3个权重值
 
-# In[ ]:
+# In[29]:
 
 
 np.random.seed(2019)
@@ -367,6 +417,28 @@ X_test = np.concatenate(X_test, axis=1)
 X_train, y_train = shuffle(X_train, y_train)
 
 
+# In[59]:
+
+
+## 单模型测试
+# np.random.seed(2019)
+
+# X_train = []
+# X_test = []
+# # gap_ResNet50.h5
+# # gap_Inception.h5
+# for filename in ["gap_InceptionV3.h5"]:
+#     with h5py.File(filename, 'r') as h:
+#         X_train.append(np.array(h['train']))
+#         X_test.append(np.array(h['test']))
+#         y_train = np.array(h['label'])
+
+# X_train = np.concatenate(X_train, axis=1)
+# X_test = np.concatenate(X_test, axis=1)
+
+# X_train, y_train = shuffle(X_train, y_train)
+
+
 # 我们基于这些权重值建立一个全连接
 # 
 # 训练深度神经网络的时候，总是会遇到两大缺点：
@@ -377,7 +449,7 @@ X_train, y_train = shuffle(X_train, y_train)
 # 
 # Dropout可以比较有效的缓解过拟合的发生，在一定程度上达到正则化的效果。
 
-# In[ ]:
+# In[60]:
 
 
 inputs = Input(X_train.shape[1:])
@@ -396,37 +468,65 @@ model.compile(optimizer='adadelta',
 # In[ ]:
 
 
-plot_model(model, to_file='model.png')
-SVG(model_to_dot(model, show_shapes=True).create(prog='dot', format='svg'))
+# plot_model(model, to_file='model.png')
+# SVG(model_to_dot(model, show_shapes=True).create(prog='dot', format='svg'))
 
 
 # ## 模型训练
 
-# In[ ]:
+# In[32]:
 
 
 model.summary()
 
 
-# In[195]:
+# In[61]:
 
 
-fit = model.fit(X_train, y_train, batch_size=128, epochs=8, validation_split=0.2, verbose=1)
+history = model.fit(X_train, y_train, batch_size=128, epochs=8, validation_split=0.2, verbose=1)
 
 
 # 8 次 epochs，训练完不到1分钟，第一次达到了97%，后面7次均达到了99%
 
 # 保存模型
 
-# In[196]:
+# In[34]:
 
 
 model.save('model.h5')
 
 
+# #### 训练过中的 accuracy 表现
+
+# In[43]:
+
+
+plt.plot(history.history['acc'])
+plt.plot(history.history['val_acc'])
+plt.title('Training and validation accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epochs')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+
+
+# #### 训练过中的 loss 表现
+
+# In[44]:
+
+
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Training and validation loss')
+plt.ylabel('loss')
+plt.xlabel('epochs')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+
+
 # ## 预测测试集
 
-# In[197]:
+# In[45]:
 
 
 y_pred = model.predict(X_test, verbose=1)
@@ -435,7 +535,7 @@ y_pred = y_pred.clip(min=0.002, max=0.998)
 
 # 测试集结果保存至sample_submission.csv，以供提交至Kaggle上查看成绩
 
-# In[198]:
+# In[50]:
 
 
 df = pd.read_csv("sample_submission.csv")
@@ -467,9 +567,34 @@ df.head(10)
 
 # ## 参考文献
 
-# - [基于Theano的深度学习(Deep Learning)框架Keras学习随笔-05-模型](https://blog.csdn.net/niuwei22007/article/details/49207187)
-# - [keras-model-visualization](https://keras.io/visualization/)
-# - [手把手教你如何在Kaggle猫狗大战冲到Top2%](https://zhuanlan.zhihu.com/p/25978105?utm_source=weibo) 
-# - [image_classification_using_very_little_data](https://keras-cn-docs.readthedocs.io/zh_CN/latest/blog/image_classification_using_very_little_data)
-# - [pooling_layer](https://keras-cn.readthedocs.io/en/latest/layers/pooling_layer)
-# - [利用resnet 做kaggle猫狗大战图像识别，秒上98准确率](https://blog.csdn.net/shizhengxin123/article/details/72473245)
+# [1] [基于Theano的深度学习(Deep Learning)框架Keras学习随笔-05-模型](https://blog.csdn.net/niuwei22007/article/details/49207187)
+# 
+# [2][keras-model-visualization](https://keras.io/visualization/)
+# 
+# [3][手把手教你如何在Kaggle猫狗大战冲到Top2%](https://zhuanlan.zhihu.com/p/25978105?utm_source=weibo) 
+# 
+# [4][image_classification_using_very_little_data](https://keras-cn-docs.readthedocs.io/zh_CN/latest/blog/image_classification_using_very_little_data)
+# 
+# [5][pooling_layer](https://keras-cn.readthedocs.io/en/latest/layers/pooling_layer)
+# 
+# [6][利用resnet 做kaggle猫狗大战图像识别，秒上98准确率](https://blog.csdn.net/shizhengxin123/article/details/72473245)
+# 
+# [7][plt.Scatter函数解析](https://blog.csdn.net/tefuirnever/article/details/88944438)
+# 
+# [8][numpy : percentile使用](https://blog.csdn.net/u011630575/article/details/79451357)
+# 
+# [9] Xie S, Girshick R, Dollár P, et al. Aggregated residual transformations for deep neural networks[J]. arXiv preprint arXiv:1611.05431, 2016.
+# 
+# [10] Donahue J, Jia Y, Vinyals O, et al. DeCAF: A Deep Convolutional Activation Feature for Generic Visual Recognition[C]//Icml. 2014, 32: 647-655.
+# 
+# [11] Ruder S. An overview of gradient descent optimization algorithms[J]. arXiv preprint arXiv:1609.04747, 2016.
+# 
+# [12] He K, Zhang X, Ren S, et al. Deep residual learning for image recognition[C]. Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition. 2016: 770-778.
+# 
+# [13] Chollet, François, [Keras](https://github.com/fchollet/keras).
+
+# In[ ]:
+
+
+
+
